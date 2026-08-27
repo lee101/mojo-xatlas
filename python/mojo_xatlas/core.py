@@ -205,7 +205,7 @@ def _check_indices(indices: np.ndarray, vertex_count: int) -> None:
 
 def _edge_capacity(face_count: int) -> int:
     capacity = 8
-    while capacity < max(8, face_count * 8):
+    while capacity < max(8, face_count * 4):
         capacity <<= 1
     return capacity
 
@@ -296,13 +296,24 @@ def _prepare_mesh(mesh: _InputMesh, chart_options: ChartOptions) -> _MeshWork:
     face_charts, chart_normals = _topology(mesh, chart_options)
     chart_count = int(face_charts.max()) + 1
     vertex_count = len(mesh.uvs) if mesh.uv_only else len(mesh.positions)
-    corner_keys = np.repeat(face_charts, 3)
-    corner_keys *= vertex_count
-    corner_keys += mesh.indices.reshape(-1)
-    unique_keys, inverse = np.unique(corner_keys, return_inverse=True)
-    mapping = np.ascontiguousarray(unique_keys % vertex_count, dtype=np.int64)
-    vertex_charts = np.ascontiguousarray(unique_keys // vertex_count, dtype=np.int64)
-    new_indices = np.ascontiguousarray(inverse.reshape(-1, 3), dtype=np.int64)
+    if chart_count == 1:
+        used = np.zeros(vertex_count, dtype=bool)
+        used[mesh.indices] = True
+        mapping = np.ascontiguousarray(np.flatnonzero(used), dtype=np.int64)
+        vertex_charts = np.zeros(len(mapping), dtype=np.int64)
+        if len(mapping) == vertex_count:
+            new_indices = mesh.indices
+        else:
+            remap = np.cumsum(used, dtype=np.int64) - 1
+            new_indices = np.ascontiguousarray(remap[mesh.indices], dtype=np.int64)
+    else:
+        corner_keys = np.repeat(face_charts, 3)
+        corner_keys *= vertex_count
+        corner_keys += mesh.indices.reshape(-1)
+        unique_keys, inverse = np.unique(corner_keys, return_inverse=True)
+        mapping = np.ascontiguousarray(unique_keys % vertex_count, dtype=np.int64)
+        vertex_charts = np.ascontiguousarray(unique_keys // vertex_count, dtype=np.int64)
+        new_indices = np.ascontiguousarray(inverse.reshape(-1, 3), dtype=np.int64)
     if mesh.uv_only or (chart_options.use_input_mesh_uvs and mesh.uvs is not None):
         raw_uvs = np.ascontiguousarray(mesh.uvs[mapping], dtype=np.float64)
     else:

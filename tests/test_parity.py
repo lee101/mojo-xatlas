@@ -446,19 +446,27 @@ def test_parametrize_is_deterministic():
     assert all(np.array_equal(a, b) for a, b in zip(first, second))
 
 
-def test_simd_tail_with_three_disconnected_charts():
+def test_simd_tail_with_nine_disconnected_charts():
     vertices = np.vstack(
-        [PLANE_VERTICES[:3] + [offset * 3, 0, 0] for offset in range(3)]
+        [PLANE_VERTICES[:3] + [offset * 3, 0, 0] for offset in range(9)]
     )
-    faces = np.arange(9, dtype=np.uint32).reshape(-1, 3)
+    faces = np.arange(27, dtype=np.uint32).reshape(-1, 3)
     atlas = generate(mx, vertices, faces)
     _, indices, uvs = atlas[0]
     triangles = uvs[indices]
     left = triangles[:, 1] - triangles[:, 0]
     right = triangles[:, 2] - triangles[:, 0]
     areas = np.abs(left[:, 0] * right[:, 1] - left[:, 1] * right[:, 0])
-    assert atlas.chart_count == 3
+    assert atlas.chart_count == 9
     assert np.all(areas > 1e-8)
+
+
+def test_single_chart_topology_omits_unreferenced_vertices():
+    vertices = np.vstack((PLANE_VERTICES, [[9.0, 9.0, 9.0]]))
+    atlas = generate(mx, vertices, PLANE_FACES)
+    mapping, indices, _ = atlas[0]
+    assert np.array_equal(mapping, np.arange(4, dtype=np.uint32))
+    assert np.array_equal(indices, PLANE_FACES)
 
 
 def test_claimed_packing_controls_affect_output():

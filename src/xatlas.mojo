@@ -1,6 +1,6 @@
 """Mesh chart segmentation, planar parameterization, and atlas packing kernels."""
 
-from std.math import ceil, sqrt
+from std.math import ceil, iota, sqrt
 from std.sys.info import simd_width_of as simdwidthof
 
 comptime FPtr = UnsafePointer[Float64, AnyOrigin[mut=True]]
@@ -113,12 +113,20 @@ def segment(
 ) -> Int:
     clear_edges_range(edge_u, edge_v, edge_face, 0, edge_capacity)
 
-    for f in range(face_count):
+    comptime W = simdwidthof[DType.float64]()
+    var empty = SIMD[DType.int64, W](-1)
+    var f = 0
+    while f + W <= face_count:
+        parent.store[alignment=1](f, iota[DType.int64, W](Int64(f)))
+        root_chart.store[alignment=1](f, empty)
+        f += W
+    while f < face_count:
         parent[f] = Int64(f)
         root_chart[f] = -1
+        f += 1
     if cosine_threshold > -1.0:
-        for f in range(face_count):
-            compute_face_normal(positions, indices, f, face_normals)
+        for face in range(face_count):
+            compute_face_normal(positions, indices, face, face_normals)
 
     var mask = edge_capacity - 1
     for f in range(face_count):

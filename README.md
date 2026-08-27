@@ -118,20 +118,20 @@ pixi run test
 pixi run bench
 ```
 
-There are 38 tests. They use published xatlas behavior through the real
+There are 39 tests. They use published xatlas behavior through the real
 `xatlas-python` package and analytic plane and cube vectors.
 
 ## Benchmarks
 
-Measured on 2026-07-29 on an Intel Xeon E5-2697 v4 at 2.30 GHz, Linux
+Measured on 2026-08-27 on an Intel Xeon E5-2697 v4 at 2.30 GHz, Linux
 6.8.0-136-generic. Each value is the best of three end-to-end runs after loading
 the Mojo library. The ratio is upstream time divided by Mojo time.
 
 | Case | mojo-xatlas | xatlas 0.0.11 | upstream / Mojo | Result |
 |---|---:|---:|---:|---|
-| Planar unwrap, 64,800 triangles | 42.47 ms | 174.60 ms | 4.11x | faster |
-| Curved unwrap, 39,200 triangles | 26.80 ms | 666.94 ms | 24.88x | faster |
-| UV repack, 64,800 triangles | 34.95 ms | 220.41 ms | 6.31x | faster |
+| Planar unwrap, 64,800 triangles | 13.61 ms | 183.19 ms | 13.46x | faster |
+| Curved unwrap, 39,200 triangles | 8.28 ms | 616.97 ms | 74.54x | faster |
+| UV repack, 64,800 triangles | 8.09 ms | 222.73 ms | 27.53x | faster |
 
 The curved case has a particularly large advantage because this port computes
 piecewise-planar charts while upstream runs its more sophisticated
@@ -152,13 +152,12 @@ Mojo compilation unit reconstructs mutable pointers with
 
 Segmentation computes triangle normals, inserts undirected edges into an
 open-addressed hash table, and joins adjacent faces with union-find when their
-dihedral angle satisfies the chart threshold. Edge and chart-normal
-initialization use SIMD with scalar tails, while face normals parallelize above
-131,072 faces and stay serial below that threshold. UV-only connectivity skips
-geometric normal work. Each chart receives an area-weighted normal and a stable
-orthonormal 2D basis. Packing estimates a texel density from projected chart
-area unless one is supplied, places sorted rectangles into deterministic
+dihedral angle satisfies the chart threshold. Edge, chart-normal, and
+union-find initialization use SIMD with scalar tails. UV-only connectivity
+skips geometric normal work. Each chart receives an area-weighted normal and a
+stable orthonormal 2D basis. Packing estimates a texel density from projected
+chart area unless one is supplied, places sorted rectangles into deterministic
 shelves, then transforms chart-local coordinates directly into normalized
-atlas UVs. Packed topology uses a one-dimensional integer key instead of a
-two-column sort, and Mojo writes final `float32` UVs directly into NumPy-owned
-buffers.
+atlas UVs. Single-chart topology uses a linear dense remap without sorting;
+multi-chart topology uses a one-dimensional integer key. Mojo writes final
+`float32` UVs directly into NumPy-owned buffers.
