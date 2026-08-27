@@ -1,6 +1,5 @@
 """Mesh chart segmentation, planar parameterization, and atlas packing kernels."""
 
-from std.algorithm import parallelize
 from std.math import ceil, sqrt
 from std.sys.info import simd_width_of as simdwidthof
 
@@ -118,24 +117,8 @@ def segment(
         parent[f] = Int64(f)
         root_chart[f] = -1
     if cosine_threshold > -1.0:
-        comptime face_chunk = 8192
-        if face_count >= face_chunk * 16:
-
-            @__copy_capture(positions, indices, face_normals, face_count)
-            @parameter
-            def normals_chunk(chunk: Int):
-                var start = chunk * face_chunk
-                var end = min(start + face_chunk, face_count)
-                for f in range(start, end):
-                    compute_face_normal(positions, indices, f, face_normals)
-
-            parallelize[normals_chunk](
-                (face_count + face_chunk - 1) // face_chunk,
-                8,
-            )
-        else:
-            for f in range(face_count):
-                compute_face_normal(positions, indices, f, face_normals)
+        for f in range(face_count):
+            compute_face_normal(positions, indices, f, face_normals)
 
     var mask = edge_capacity - 1
     for f in range(face_count):
